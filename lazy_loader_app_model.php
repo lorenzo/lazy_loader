@@ -13,27 +13,28 @@
  * @license     MIT
  *
  */
- 
+
 class LazyLoaderAppModel extends AppModel {
   var $__backInnerAssociation = array();
-  
+  var $__originalClassName = array();
+
   function __isset($name) {
     $className = false;
-    
+
     foreach ($this->__associations as $type) {
       if (array_key_exists($name, $this-> {$type})) {
-        $className = $this-> {$type}[$name]['className'];
+        $className = $this->__originalClassName[$this-> {$type}[$name]['className']];
         break;
       }
       if($type == 'hasAndBelongsToMany') {
         $withs = Set::extract('/with', array_values($this-> {$type}));
         if(in_array($name, $withs)) {
-          $className = $name;
+          $className = $this->__originalClassName[$name];
           break;
         }
       }
     }
-    
+
     if($className) {
       parent::__constructLinkedModel($name, $className);
       parent::__generateAssociation($type);
@@ -69,6 +70,52 @@ class LazyLoaderAppModel extends AppModel {
 
   function resetAssociations() {
     return true;
+  }
+
+  function __createLinks() {
+	foreach ($this->__associations as $type) {
+		$plugin = null;
+		if (!empty($this->{$type})) {
+			foreach ($this->{$type} as $assoc => $value) {
+				$className = $assoc;
+				if (is_numeric($assoc)) {
+					$className = $value;
+					$value = array();
+					if (strpos($assoc, '.') !== false) {
+						list($plugin, $className) = explode('.', $className);
+						$plugin = $plugin . '.';
+					}
+				}
+
+				if (isset($value['className']) && !empty($value['className'])) {
+					$className = $value['className'];
+					if (strpos($className, '.') !== false) {
+						list($plugin, $className) = explode('.', $className);
+						$plugin = $plugin . '.';
+					}
+				}
+
+				if (!empty($this->{$type}[$assoc]['with'])) {
+					$joinClass = $this->{$type}[$assoc]['with'];
+					if (is_array($joinClass)) {
+						$joinClass = key($joinClass);
+					}
+					if (strpos($joinClass, '.') !== false) {
+						list($plugin, $joinClass) = explode('.', $joinClass);
+						$plugin = $plugin . '.';
+					}
+					if (empty($this->__originalClassName[$joinClass])) {
+						$this->__originalClassName[$joinClass] = $plugin.$joinClass;
+					}
+				}
+
+				if (empty($this->__originalClassName[$className])) {
+						$this->__originalClassName[$className] = $plugin.$className;
+				}
+			}
+		}
+	 }
+	 parent::__createLinks();
   }
 }
 ?>
