@@ -29,9 +29,13 @@ class LazyLoaderTestCase extends CakeTestCase {
                         'plugin.lazy_loader.category',
                         'plugin.lazy_loader.posts_tag');
 
-  function start() {
-    parent::start();
+  function startTest() {
     $this->Post = & ClassRegistry::init('Post');
+  }
+
+  function endTest() {
+    unset($this->Post);
+	ClassRegistry::flush();
   }
 
   function testPostInstance() {
@@ -56,25 +60,23 @@ class LazyLoaderTestCase extends CakeTestCase {
 
   function testLazyBindingHabtm() {
     $this->assertFalse(property_exists($this->Post, 'Tag'));
-    //$this->Post->Tag;
-    //$this->assertTrue(property_exists($this->Post, 'Tag'));
-    //$this->assertTrue(is_a($this->Post->Tag, 'Tag'));
-    //$this->assertTrue(property_exists($this->Post, 'PostsTag'));
-    //$this->assertTrue(is_a($this->Post->PostsTag, 'AppModel'));
+    $this->Post->Tag;
+    $this->assertTrue(property_exists($this->Post, 'Tag'));
+    $this->assertTrue(is_a($this->Post->Tag, 'Tag'));
+    $this->assertTrue(property_exists($this->Post, 'PostsTag'));
+    $this->assertTrue(is_a($this->Post->PostsTag, 'AppModel'));
   }
 
   function testContain() {
-    ClassRegistry::removeObject('Post');
-    $this->Post = & ClassRegistry::init('Post');
+	$this->Post->Behaviors->attach('Containable');
     $this->assertFalse(property_exists($this->Post, 'Category'));
-    $results = $this->Post->find('all');
+    $results = $this->Post->find('all',array('contain' => false));
     $this->assertFalse(property_exists($this->Post, 'Category'));
     $this->assertEqual(array('Post'), array_keys($results[0]));
   }
 
   function testContainLazyBinding() {
-    ClassRegistry::removeObject('Post');
-    $this->Post = & ClassRegistry::init('Post');
+    $this->Post->Behaviors->attach('Containable');
     $this->assertFalse(property_exists($this->Post, 'Category'));
     $this->Post->contain('Category');
     $this->assertFalse(property_exists($this->Post, 'Category'));
@@ -85,16 +87,14 @@ class LazyLoaderTestCase extends CakeTestCase {
   }
 
   function testContainLazyBindingResetFalse() {
-    ClassRegistry::removeObject('Post');
-    $this->Post = & ClassRegistry::init('Post');
+    $this->Post->Behaviors->attach('Containable');
     $this->Post->contain(array('Category', 'Tag'), false);
     $results = $this->Post->find('all');
     $this->assertEqual(array('Post', 'Category', 'Tag'), array_keys($results[0]));
   }
 
   function testContainLazyBindingHabtm() {
-    ClassRegistry::removeObject('Post');
-    $this->Post = & ClassRegistry::init('Post');
+    $this->Post->Behaviors->attach('Containable');
     $this->assertFalse(property_exists($this->Post, 'Tag'));
     $this->Post->contain('Tag');
     $this->assertFalse(property_exists($this->Post, 'Tag'));

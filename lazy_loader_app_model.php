@@ -29,7 +29,7 @@ class LazyLoaderAppModel extends AppModel {
       if($type == 'hasAndBelongsToMany') {
         $withs = Set::extract('/with', array_values($this-> {$type}));
         if(in_array($name, $withs)) {
-          $className = $this->__originalClassName[$name];
+          $className = isset($this->__originalClassName[$name]) ? $this->__originalClassName[$name] : $name;
           break;
         }
       }
@@ -78,6 +78,7 @@ class LazyLoaderAppModel extends AppModel {
 		if (!empty($this->{$type})) {
 			foreach ($this->{$type} as $assoc => $value) {
 				$className = $assoc;
+
 				if (is_numeric($assoc)) {
 					$className = $value;
 					$value = array();
@@ -95,7 +96,7 @@ class LazyLoaderAppModel extends AppModel {
 					}
 				}
 
-				if (!empty($this->{$type}[$assoc]['with'])) {
+				if (is_array($this->{$type}[$assoc]) && !empty($this->{$type}[$assoc]['with'])) {
 					$joinClass = $this->{$type}[$assoc]['with'];
 					if (is_array($joinClass)) {
 						$joinClass = key($joinClass);
@@ -104,6 +105,7 @@ class LazyLoaderAppModel extends AppModel {
 						list($plugin, $joinClass) = explode('.', $joinClass);
 						$plugin = $plugin . '.';
 					}
+
 					if (empty($this->__originalClassName[$joinClass])) {
 						$this->__originalClassName[$joinClass] = $plugin.$joinClass;
 					}
