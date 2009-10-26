@@ -15,7 +15,6 @@
  */
 
 class LazyLoaderAppModel extends AppModel {
-  var $__backInnerAssociation = array();
   var $__originalClassName = array();
 
   function __isset($name) {
@@ -69,7 +68,25 @@ class LazyLoaderAppModel extends AppModel {
   }
 
   function resetAssociations() {
-    return true;
+	if (!empty($this->__backAssociation)) {
+		foreach ($this->__associations as $type) {
+			if (isset($this->__backAssociation[$type])) {
+				$this->{$type} = $this->__backAssociation[$type];
+			}
+		}
+		$this->__backAssociation = array();
+	}
+	
+	foreach ($this->__associations as $type) {
+		foreach ($this->{$type} as $key => $name) {
+			if (ClassRegistry::isKeySet($key) && !empty($this->{$key}->__backAssociation)) {
+				$this->{$key}->resetAssociations();
+			}
+		}
+	}
+	
+	$this->__backAssociation = array();
+	return true;
   }
 
   function __createLinks() {
