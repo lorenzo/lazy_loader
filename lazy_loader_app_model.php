@@ -13,7 +13,9 @@
  * @license     MIT
  *
  */
-
+if (!class_exists('AppModel')) {
+	App::import('Model','AppModel');
+}
 class LazyLoaderAppModel extends AppModel {
   var $__originalClassName = array();
 
