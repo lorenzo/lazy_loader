@@ -78,7 +78,7 @@ class LazyLoaderAppModel extends AppModel {
 		}
 		$this->__backAssociation = array();
 	}
-	
+
 	foreach ($this->__associations as $type) {
 		foreach ($this->{$type} as $key => $name) {
 			if (ClassRegistry::isKeySet($key) && !empty($this->{$key}->__backAssociation)) {
@@ -86,18 +86,17 @@ class LazyLoaderAppModel extends AppModel {
 			}
 		}
 	}
-	
+
 	$this->__backAssociation = array();
 	return true;
   }
 
   function __createLinks() {
 	foreach ($this->__associations as $type) {
-		$plugin = null;
 		if (!empty($this->{$type})) {
 			foreach ($this->{$type} as $assoc => $value) {
 				$className = $assoc;
-
+				$plugin = null;
 				if (is_numeric($assoc)) {
 					$className = $value;
 					$value = array();
