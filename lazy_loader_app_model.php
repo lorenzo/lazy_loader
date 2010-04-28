@@ -13,10 +13,12 @@
  * @license     MIT
  *
  */
-if (!class_exists('AppModel')) {
-	App::import('Model','AppModel');
-}
+
 class LazyLoaderAppModel extends AppModel {
+
+  /**
+  * Stores the original string as set in 'className' as association options befor it gets changed
+  */
   var $__originalClassName = array();
 
   function __isset($name) {
@@ -28,18 +30,35 @@ class LazyLoaderAppModel extends AppModel {
         break;
       }
       if($type == 'hasAndBelongsToMany') {
-        $withs = Set::extract('/with', array_values($this-> {$type}));
-        if(in_array($name, $withs)) {
-          $className = isset($this->__originalClassName[$name]) ? $this->__originalClassName[$name] : $name;
-          break;
-        }
+		foreach ($this->{$type} as $k => $relation) {
+			if (!empty($relation['with'])) {
+
+				if (isset($this->__originalClassName[$name])) {
+					$className = $this->__originalClassName[$name];
+				} elseif ($relation['with'] === $name) {
+					$className = $name;
+				}
+
+				if ($className) {
+					$assocKey = $k;
+					break(2);
+				}
+			}
+		}
       }
     }
 
     if($className) {
       parent::__constructLinkedModel($name, $className);
-      parent::__generateAssociation($type);
-      return $this-> {$name};
+
+      if (!empty($assocKey)) {
+		$this->hasAndBelongsToMany[$assocKey]['joinTable'] = $this->{$name}->table;
+		if (count($this->{$name}->schema()) <= 2 && $this->{$name}->primaryKey !== false) {
+			$this->{$name}->primaryKey = $this->hasAndBelongsToMany[$assocKey]['foreignKey'];
+		}
+      }
+
+      return $this->{$name};
     }
 
     return false;
@@ -59,10 +78,11 @@ class LazyLoaderAppModel extends AppModel {
         return;
       }
       if($type == 'hasAndBelongsToMany') {
-        $withs = Set::extract('/with', array_values($this-> {$type}));
-        if(in_array($assoc, $withs)) {
-          return;
-        }
+		foreach ($this->{$type} as $relation) {
+			if (!empty($relation['with']) && $relation['with'] === $assoc) {
+				return;
+			}
+		}
       }
     }
 
@@ -81,7 +101,7 @@ class LazyLoaderAppModel extends AppModel {
 
 	foreach ($this->__associations as $type) {
 		foreach ($this->{$type} as $key => $name) {
-			if (ClassRegistry::isKeySet($key) && !empty($this->{$key}->__backAssociation)) {
+			if (property_exists($this, $key) && !empty($this->{$key}->__backAssociation)) {
 				$this->{$key}->resetAssociations();
 			}
 		}
@@ -106,7 +126,7 @@ class LazyLoaderAppModel extends AppModel {
 					}
 				}
 
-				if (isset($value['className']) && !empty($value['className'])) {
+				if (!empty($value['className'])) {
 					$className = $value['className'];
 					if (strpos($className, '.') !== false) {
 						list($plugin, $className) = explode('.', $className);
@@ -137,5 +157,81 @@ class LazyLoaderAppModel extends AppModel {
 	 }
 	 parent::__createLinks();
   }
+
+/**
+ * Build an array-based association from string.
+ *
+ * @param string $type 'belongsTo', 'hasOne', 'hasMany', 'hasAndBelongsToMany'
+ * @return void
+ * @access private
+ */
+	function __generateAssociation($type) {
+		foreach ($this->{$type} as $assocKey => $assocData) {
+			$class = $assocKey;
+			$dynamicWith = false;
+
+			foreach ($this->__associationKeys[$type] as $key) {
+
+				if (!isset($this->{$type}[$assocKey][$key]) || $this->{$type}[$assocKey][$key] === null) {
+					$data = '';
+
+					switch ($key) {
+						case 'fields':
+							$data = '';
+						break;
+
+						case 'foreignKey':
+							$data = (($type == 'belongsTo') ? Inflector::underscore($assocKey) : Inflector::singularize($this->table)) . '_id';
+						break;
+
+						case 'associationForeignKey':
+							$data = Inflector::singularize($this->{$class}->table) . '_id';
+						break;
+
+						case 'with':
+							$data = Inflector::camelize(Inflector::singularize($this->{$type}[$assocKey]['joinTable']));
+							$dynamicWith = true;
+						break;
+
+						case 'joinTable':
+							$tables = array($this->table, $this->{$class}->table);
+							sort ($tables);
+							$data = $tables[0] . '_' . $tables[1];
+						break;
+
+						case 'className':
+							$data = $class;
+						break;
+
+						case 'unique':
+							$data = true;
+						break;
+					}
+					$this->{$type}[$assocKey][$key] = $data;
+				}
+			}
+
+			if (!empty($this->{$type}[$assocKey]['with'])) {
+				$joinClass = $this->{$type}[$assocKey]['with'];
+				if (is_array($joinClass)) {
+					$joinClass = key($joinClass);
+				}
+
+				$plugin = null;
+				if (strpos($joinClass, '.') !== false) {
+					list($plugin, $joinClass) = explode('.', $joinClass);
+					$plugin .= '.';
+					$this->{$type}[$assocKey]['with'] = $joinClass;
+				}
+
+				if (!ClassRegistry::isKeySet($joinClass) && $dynamicWith === true) {
+					$this->{$joinClass} = new AppModel(array(
+						'name' => $joinClass,
+						'table' => $this->{$type}[$assocKey]['joinTable'],
+						'ds' => $this->useDbConfig
+					));
+				}
+			}
+		}
+	}
 }
-?>
